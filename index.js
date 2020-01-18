@@ -1,33 +1,51 @@
-const express = require("express");
 const mongoose = require("mongoose");
+const express = require("express");
+const bodyParser = require("body-parser");
+const graphqlHttp = require("express-graphql");
+const graphqlSchema = require("./graphql/schema");
+const graphqlroot = require("./graphql/resolvers");
+const isAuth = require("./graphql/middleware/isAuth");
 const cors = require("cors");
-const typeDefs = require("./graphql/typeDefs");
-const resolvers = require("./graphql/resolvers/index");
-const { ApolloServer } = require("apollo-server-express");
+const cookieParser = require('cookie-parser')
 
-const startServer = () => {
-  const server = new ApolloServer({
-    typeDefs,
-    resolvers
-  });
+mongoose.connect("mongodb://localhost:27017", {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+});
+mongoose.connection.once("open", () => {
+  console.log("connected to Database");
+});
 
-  mongoose.connect("mongodb://localhost:27017", { useNewUrlParser: true });
-  mongoose.connection.once("open", () => {
-    console.log("connected to Database");
-  });
+const app = express();
 
-  const app = express();
-  app.use(cors());
+app.use(bodyParser.json());
+app.use(cookieParser());
 
-  const port = 5000;
+app.use(cors());
 
-  server.applyMiddleware({
-    app
-  });
+app.use(isAuth);
 
-  app.listen({ port }, () => {
-    console.log(`Listening for requests on port:${port}`);
-  });
-};
+app.use(
+  "/graphql",
+  graphqlHttp({
+    schema: graphqlSchema,
+    rootValue: graphqlroot,
+    graphiql: true
+  })
+);
 
-startServer();
+const port = 4000;
+
+app.listen(port);
+console.log(`App running at localhost:${port}/graphql`);
+
+// const server = new ApolloServer({
+//   cors: true,
+//   typeDefs,
+//   resolvers,
+//   context: async ({ req }) => ({ req })
+// });
+
+// server.listen().then(({ url }) => {
+//   console.log(`🚀  Server ready at ${url}`);
+// });
